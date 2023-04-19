@@ -33,19 +33,21 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("空气沿平板强迫流动对流换热实验V1.0")
 
         # 创建应用程序图标对象
-        app_icon = QIcon("pic.jpg")
+        app_icon = QIcon("logo.jpg")
 
         # 设置应用程序图标
         self.setWindowIcon(app_icon)
+
+        # 安装事件过滤器
+        self.installEventFilter(self)
 
         # 连接数据库
         self.conn = sqlite3.connect("experiment.db")
         self.c = self.conn.cursor()
 
-        # 安装事件过滤器
-        self.installEventFilter(self)
-
-        # 创建表格
+        
+        # 创建表格         # 清空数据库
+        self.c.execute("DELETE FROM data")
         self.c.execute("""CREATE TABLE IF NOT EXISTS data (
                             id INTEGER PRIMARY KEY,
                             voltage FLOAT,
@@ -70,6 +72,7 @@ class MainWindow(QMainWindow):
                             temperature16 FLOAT
                             )""")
         self.conn.commit()
+
 
         # 获取COM口
         comnum = None
@@ -259,7 +262,7 @@ class MainWindow(QMainWindow):
 
     def open_new_window(self):
         self.setEnabled(False)  # 禁用主界面
-        self.new_window = NewWindow(self.conn)
+        self.new_window = NewWindow(self.conn,self)
         self.new_window.exec_()
         self.setEnabled(True)  # 重新启用主界面
 
@@ -386,6 +389,7 @@ class MainWindow(QMainWindow):
                 # 启动计时器
                 self.timer.start(100)
         return super().eventFilter(obj, event)
+        
 
     # 开关按钮
     def control(self):

@@ -2,24 +2,36 @@ import os
 # import main
 from PyQt5.QtWidgets import QDialog, QMessageBox, QApplication, QTableWidget, QFileDialog, QHeaderView, QPushButton, QTableWidgetItem
 from PyQt5.QtCore import Qt, QTimer, QEvent
+from PyQt5.QtGui import QIcon
 from openpyxl import Workbook
 
 
 class NewWindow(QDialog):
-    def __init__(self, conn):
+    def __init__(self, conn, main_window):
 
         super().__init__()
+
+        # 创建应用程序图标对象
+        app_icon = QIcon("logo.jpg")
+
+        # 设置应用程序图标
+        self.setWindowIcon(app_icon)
+
+        self.main_window = main_window
 
         self.setWindowTitle("数据表格")
 
         # 连接数据库
         self.conn = conn
         self.c = self.conn.cursor()
-
+        
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_table)
         self.timer.start(100)
         self.timer.stop()
+
+        # 安装事件过滤器
+        self.installEventFilter(self)
 
         # 创建表格
         self.table = QTableWidget(self)
@@ -36,6 +48,8 @@ class NewWindow(QDialog):
         self.table.horizontalHeader().setDefaultAlignment(Qt.AlignCenter)
         # self.table.verticalHeader().setStyleSheet("border: 1px solid;")
         # self.table.horizontalHeader().setStyleSheet("border: 1px solid;")
+
+
 
         for i in range(20):
             self.table.setColumnWidth(i, 47)
@@ -134,41 +148,27 @@ class NewWindow(QDialog):
             # 弹出提示窗口
             QMessageBox.information(self, "提示", "文件已成功保存！", QMessageBox.Ok)
 
+    # 刷新按钮
     def refresh_table(self):
-        # 停止计时器
-        self.timer.stop()
+        # 更新表格
+        self.update_table()
 
-        # 清空表格
-        self.table.clearContents()
-
-        # 重新填充数据
-        self.c.execute("SELECT * FROM data")
-        rows = self.c.fetchall()
-        for i in range(len(rows)):
-            row = rows[i]
-            for j in range(3, 21):
-                if j == 3:
-                    item = QTableWidgetItem("{:.2f}".format(row[j])+'W')
-                elif j == 4:
-                    item = QTableWidgetItem("{:.0f}".format(row[j])+'Pa')
-                else:
-                    item = QTableWidgetItem("{:.1f}".format(row[j])+'℃')
-                item.setTextAlignment(Qt.AlignCenter)
-                self.table.setItem(i, j-3, item)
-
-        # 拖动时进制数据更新，解决卡顿问题
-
-    # def eventFilter(obj, event):
-    #     if event.type() == QEvent.NonClientAreaMouseButtonPress:
-    #         # 停止计时器
-    #         main.timer.stop()
-    #     elif event.type() == QEvent.NonClientAreaMouseButtonRelease:
-    #         if main.button.text() == "暂停":
-    #             # 启动计时器
-    #             main.timer.start(100)
-    #     return super().eventFilter(obj, event)
+    # 拖动时禁止主界面数据更新，解决卡顿问题
+    def read_main_button_text(self):
+        # 从 main_window 中的 button 读取文本值
+        button_text = self.main_window.button.text()
+        return button_text
+    
+    def eventFilter(self, source, event):
+        if  event.type() == QEvent.NonClientAreaMouseButtonPress:
+            # 停止主窗口中的计时器
+                self.main_window.timer.stop()
+        elif  event.type() == QEvent.NonClientAreaMouseButtonRelease:
+            # 启动主窗口中的计时器
+            if self.read_main_button_text() == "暂停":
+                self.main_window.timer.start(100)
+        return super().eventFilter(source, event)
 
     def closeEvent(self, event):
         # 关闭窗口时关闭数据库连接和定时器
-        self.timer.stop()
         event.accept()
