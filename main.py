@@ -8,7 +8,7 @@ import qtmodern.windows
 # import qdarktheme
 import serial.tools.list_ports
 from PyQt5.QtWidgets import QMessageBox, QApplication, QMainWindow, QLabel, QPushButton, QLineEdit
-from PyQt5.QtCore import QTimer, Qt, QEvent,QPropertyAnimation, QPoint
+from PyQt5.QtCore import QTimer, Qt, QEvent
 import PyQt5.QtGui as QtGui
 from PyQt5.QtGui import QIcon
 from Table import NewWindow
@@ -103,17 +103,6 @@ class MainWindow(QMainWindow):
         title_label.setStyleSheet("color: red;")
         title_label.setGeometry(0, 0, 960, 50)
 
-        # 创建一个QLabel来显示斜杠
-        slash_label = QLabel("/", self)
-        slash_label.setStyleSheet("color: white; font-size: 30px;")
-
-        # 设置动画
-        animation = QPropertyAnimation(slash_label, b"pos")
-        animation.setDuration(1000)
-        animation.setLoopCount(-1)
-        animation.setStartValue(QPoint(-50, 25))
-        animation.setEndValue(QPoint(960, 25))
-        animation.start()
 
         # 插入图片
         self.image_label = QLabel(self)
@@ -287,6 +276,17 @@ class MainWindow(QMainWindow):
         y = int((screenGeometry.height() - self.height()) / 4)
         self.move(x, y)
 
+        # 创建一个新的ConfigParser对象并读取配置文件：
+        self.config = configparser.ConfigParser()
+        self.config.read('config.ini')
+
+        # 读取配置文件中的值
+        self.voltage_threshold = self.config.getint('Thresholds', 'Voltage')
+        self.pressure_threshold = self.config.getint('Thresholds', 'Pressure')
+        self.temperature_threshold = self.config.getint('Thresholds','Temperature')
+        self.timing = self.config.getint('Thresholds','Timing')
+
+
     def open_new_window(self):
         self.setEnabled(False)  # 禁用主界面
         self.new_window = NewWindow(self.conn,self)
@@ -343,23 +343,15 @@ class MainWindow(QMainWindow):
             self.previous_pressure == pressure
         print(self.previous_pressure)
 
-        # 创建一个新的ConfigParser对象并读取配置文件：
-        config = configparser.ConfigParser()
-        config.read('config.ini')
-
-        # 读取配置文件中的值
-        voltage_threshold = config.getint('Thresholds', 'Voltage')
-        pressure_threshold = config.getint('Thresholds', 'Pressure')
-        temperature_threshold = config.getint('Thresholds','Temperature')
 
         # 判断是否稳态
         temperature_stable = [
-            abs(temperatures[i] - self.previous_temperatures[i]) < temperature_threshold for i in range(16)]
+            abs(temperatures[i] - self.previous_temperatures[i]) < self.temperature_threshold for i in range(16)]
         # 判断是否同一工况，电压或风压的变化情况，与上一次稳态或者实验开始时对比
         voltage_stable = abs(
-            voltage - self.previous_voltage) > voltage_threshold
+            voltage - self.previous_voltage) > self.voltage_threshold
         pressure_stable = abs(
-            pressure - self.previous_pressure) > pressure_threshold
+            pressure - self.previous_pressure) > self.pressure_threshold
         print(voltage_stable)
         print(pressure_stable)
 
@@ -428,7 +420,7 @@ class MainWindow(QMainWindow):
         elif event.type() == QEvent.NonClientAreaMouseButtonRelease:
             if self.button.text() == "暂停":
                 # 启动计时器
-                self.timer.start(100)
+                self.timer.start(self.timing)
         return super().eventFilter(obj, event)
         
 
@@ -443,7 +435,7 @@ class MainWindow(QMainWindow):
                 "background-color: rgb(173, 216, 230);")      # 浅蓝色
 
         else:
-            self.timer.start(100)
+            self.timer.start(self.timing)
             self.button.setText("暂停")
             self.label_status.setText("已开始")
             self.label_status.setStyleSheet("color: blue;")

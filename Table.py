@@ -1,5 +1,5 @@
 import os
-# import main
+import configparser
 from PyQt5.QtWidgets import QDialog, QMessageBox, QApplication, QTableWidget, QFileDialog, QHeaderView, QPushButton, QTableWidgetItem
 from PyQt5.QtCore import Qt, QTimer, QEvent
 from PyQt5.QtGui import QIcon
@@ -77,6 +77,13 @@ class NewWindow(QDialog):
         self.save_button = QPushButton("保存", self)
         self.save_button.setGeometry(860, 470, 80, 40)
         self.save_button.clicked.connect(self.save_table)
+
+        # 创建一个新的ConfigParser对象并读取配置文件：
+        self.config = configparser.ConfigParser()
+        self.config.read('config.ini')
+
+        # 读取配置文件中的值
+        self.timing = self.config.getint('Thresholds','Timing')
 
     def update_table(self):
         # 清空表格
@@ -166,7 +173,7 @@ class NewWindow(QDialog):
         elif  event.type() == QEvent.NonClientAreaMouseButtonRelease:
             # 启动主窗口中的计时器
             if self.read_main_button_text() == "暂停":
-                self.main_window.timer.start(100)
+                self.main_window.timer.start(self.timing)
         return super().eventFilter(source, event)
 
     def closeEvent(self, event):
