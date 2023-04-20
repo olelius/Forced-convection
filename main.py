@@ -350,10 +350,11 @@ class MainWindow(QMainWindow):
         # 读取配置文件中的值
         voltage_threshold = config.getint('Thresholds', 'Voltage')
         pressure_threshold = config.getint('Thresholds', 'Pressure')
+        temperature_threshold = config.getint('Thresholds','Temperature')
 
         # 判断是否稳态
         temperature_stable = [
-            abs(temperatures[i] - self.previous_temperatures[i]) < 1 for i in range(16)]
+            abs(temperatures[i] - self.previous_temperatures[i]) < temperature_threshold for i in range(16)]
         # 判断是否同一工况，电压或风压的变化情况，与上一次稳态或者实验开始时对比
         voltage_stable = abs(
             voltage - self.previous_voltage) > voltage_threshold
