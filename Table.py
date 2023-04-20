@@ -40,8 +40,8 @@ class NewWindow(QDialog):
         self.table.setRowCount(10)
         self.table.setColumnCount(19)
         self.table.setHorizontalHeaderLabels(
-            ["功率", "风压", "通道1", "通道2", "通道3", "通道4", "通道5", "通道6", "通道7",
-             "通道8", "通道9", "通道10", "通道11", "通道12", "通道13", "通道14", "通道15", "通道16", "来流"])
+            ["功率", "风压", "来流", "通道1", "通道2", "通道3", "通道4", "通道5", "通道6", "通道7",
+             "通道8", "通道9", "通道10", "通道11", "通道12", "通道13", "通道14", "通道15", "通道16"])
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.table.setShowGrid(True)
         self.table.verticalHeader().setDefaultAlignment(Qt.AlignCenter)
@@ -89,7 +89,7 @@ class NewWindow(QDialog):
         # 更新表格内容
         for i in range(len(rows)):
             row = rows[i]
-            for j in range(3, 21):
+            for j in range(3, 22):
                 if j == 3:
                     item = QTableWidgetItem("{:.2f}".format(row[j])+'W')
                 elif j == 4:

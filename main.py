@@ -8,7 +8,7 @@ import qtmodern.windows
 # import qdarktheme
 import serial.tools.list_ports
 from PyQt5.QtWidgets import QMessageBox, QApplication, QMainWindow, QLabel, QPushButton, QLineEdit
-from PyQt5.QtCore import QTimer, Qt, QEvent
+from PyQt5.QtCore import QTimer, Qt, QEvent,QPropertyAnimation, QPoint
 import PyQt5.QtGui as QtGui
 from PyQt5.QtGui import QIcon
 from Table import NewWindow
@@ -47,13 +47,13 @@ class MainWindow(QMainWindow):
 
         
         # 创建表格         # 清空数据库
-        self.c.execute("DELETE FROM data")
         self.c.execute("""CREATE TABLE IF NOT EXISTS data (
                             id INTEGER PRIMARY KEY,
                             voltage FLOAT,
                             current FLOAT,
                             power FLOAT,
                             pressure INTEGER,
+                            inlet_temp FLOAT,
                             temperature1 FLOAT,
                             temperature2 FLOAT,
                             temperature3 FLOAT,
@@ -71,6 +71,7 @@ class MainWindow(QMainWindow):
                             temperature15 FLOAT,
                             temperature16 FLOAT
                             )""")
+        self.c.execute("DELETE FROM data")
         self.conn.commit()
 
 
@@ -91,6 +92,9 @@ class MainWindow(QMainWindow):
         self.inst3 = minimalmodbus.Instrument(comnum, 3)
         self.inst3.serial.baudrate = 9600
         self.inst3.serial.timeout = 1
+        self.inst4 = minimalmodbus.Instrument(comnum, 4)
+        self.inst4.serial.baudrate = 9600
+        self.inst4.serial.timeout = 1
 
         # 添加标题
         title_label = QLabel("空气沿平板强迫流动对流换热实验", self)
@@ -98,6 +102,18 @@ class MainWindow(QMainWindow):
         title_label.setAlignment(Qt.AlignCenter)
         title_label.setStyleSheet("color: red;")
         title_label.setGeometry(0, 0, 960, 50)
+
+        # 创建一个QLabel来显示斜杠
+        slash_label = QLabel("/", self)
+        slash_label.setStyleSheet("color: white; font-size: 30px;")
+
+        # 设置动画
+        animation = QPropertyAnimation(slash_label, b"pos")
+        animation.setDuration(1000)
+        animation.setLoopCount(-1)
+        animation.setStartValue(QPoint(-50, 25))
+        animation.setEndValue(QPoint(960, 25))
+        animation.start()
 
         # 插入图片
         self.image_label = QLabel(self)
@@ -129,7 +145,7 @@ class MainWindow(QMainWindow):
         self.label_power.setText("W")
 
         self.label_Wind_pressure = QLabel(self)
-        self.label_Wind_pressure.move(53, 450)
+        self.label_Wind_pressure.move(54, 450)
         self.label_Wind_pressure.resize(200, 50)
         self.label_Wind_pressure.setText("风机风压：")
 
@@ -139,9 +155,14 @@ class MainWindow(QMainWindow):
         self.label_pressure.setText("Pa")
 
         self.label_inlet_temp = QLabel(self)
-        self.label_inlet_temp.move(232, 450)
+        self.label_inlet_temp.move(232, 500)
         self.label_inlet_temp.resize(200, 50)
         self.label_inlet_temp.setText("来流温度：         ℃")
+
+        self.label_room_temp = QLabel(self)
+        self.label_room_temp.move(78, 500)
+        self.label_room_temp.resize(200, 50)
+        self.label_room_temp.setText("室温：         ℃")
 
         self.label_temps = []
         for i in range(16):
@@ -188,10 +209,16 @@ class MainWindow(QMainWindow):
             self.lineedit_pressure_value.text())   # 初始化压强
 
         self.lineedit_inlet_temp_value = QLineEdit(self)
-        self.lineedit_inlet_temp_value.move(300, 460)
+        self.lineedit_inlet_temp_value.move(300, 510)
         self.lineedit_inlet_temp_value.resize(40, 30)
         self.lineedit_inlet_temp_value.setText("0.0")
         self.lineedit_inlet_temp_value.setReadOnly(True)
+
+        self.lineedit_room_temp_value = QLineEdit(self)
+        self.lineedit_room_temp_value.move(120, 510)
+        self.lineedit_room_temp_value.resize(40, 30)
+        self.lineedit_room_temp_value.setText("0.0")
+        self.lineedit_room_temp_value.setReadOnly(True)
 
         self.lineedit_temperature_values = []
         for i in range(16):
@@ -253,7 +280,7 @@ class MainWindow(QMainWindow):
             "background-color:rgb(173, 216, 230);")
 
         # 设置窗口居中显示
-        self.setFixedSize(960, 540)
+        self.setFixedSize(960, 560)
         screen = QtGui.QGuiApplication.primaryScreen()
         screenGeometry = screen.geometry()
         x = int((screenGeometry.width() - self.width()) / 2)
@@ -272,6 +299,7 @@ class MainWindow(QMainWindow):
             data = self.inst.read_registers(0, 2, 4)
             data2 = self.inst2.read_registers(4, 1, 3)
             data3 = self.inst3.read_registers(40, 16, 3)
+            data4 = self.inst4.read_registers(40, 2, 3)
         except minimalmodbus.NoResponseError as e:
             print("Modbus通信错误：", e)
             return
@@ -286,6 +314,15 @@ class MainWindow(QMainWindow):
                 t0 = 0
             t = t0 / 10
             temperatures.append(t)
+        inlet = data4[0]       # 来流温度
+        room = data4[1]        # 室温
+        if inlet== 63488:
+            inlet = 0
+        if room== 63488:
+            room = 0
+        inlet = inlet / 10
+        room = room / 10
+
 
         # 更新界面数据
         self.lineedit_voltage_value.setText("{:.2f}".format(voltage))
@@ -295,6 +332,8 @@ class MainWindow(QMainWindow):
         for i in range(16):
             self.lineedit_temperature_values[i].setText(
                 "{:.1f}".format(temperatures[i]))
+        self.lineedit_inlet_temp_value.setText("{:.1f}".format(inlet))
+        self.lineedit_room_temp_value.setText("{:.1f}".format(room))
 
         # 暂停数据
         if (self.previous_voltage == 0):
@@ -315,7 +354,7 @@ class MainWindow(QMainWindow):
         # 判断是否稳态
         temperature_stable = [
             abs(temperatures[i] - self.previous_temperatures[i]) < 1 for i in range(16)]
-        # 判断是否同一工况，变量电压或风压的变化情况
+        # 判断是否同一工况，电压或风压的变化情况，与上一次稳态或者实验开始时对比
         voltage_stable = abs(
             voltage - self.previous_voltage) > voltage_threshold
         pressure_stable = abs(
@@ -346,7 +385,7 @@ class MainWindow(QMainWindow):
                 self.previous_temperatures = [0.0] * 16
 
         else:
-            # 更新 previous_temperatures
+            # 实时更新 previous_temperatures
             self.previous_temperatures = temperatures.copy()
             # self.previous_voltage = voltage
 
@@ -357,15 +396,16 @@ class MainWindow(QMainWindow):
         current = float(self.lineedit_current_value.text())
         power = float(self.lineedit_power_value.text())
         pressure = int(self.lineedit_pressure_value.text())
+        inlet = float(self.lineedit_inlet_temp_value.text())
         temperatures = [
             float(self.lineedit_temperature_values[i].text()) for i in range(16)]
 
-        self.c.execute("""INSERT INTO data (voltage, current, power, pressure,
+        self.c.execute("""INSERT INTO data (voltage, current, power, pressure, inlet_temp,
                                             temperature1, temperature2, temperature3, temperature4, temperature5, temperature6,
                                             temperature7, temperature8, temperature9, temperature10, temperature11, temperature12,
                                             temperature13, temperature14, temperature15, temperature16)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                       (voltage, current, power, pressure,
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)""",
+                       (voltage, current, power, pressure,inlet,
                         temperatures[0], temperatures[1], temperatures[2], temperatures[3], temperatures[4], temperatures[5],
                         temperatures[6], temperatures[7], temperatures[8], temperatures[9], temperatures[10], temperatures[11],
                         temperatures[12], temperatures[13], temperatures[14], temperatures[15]))
